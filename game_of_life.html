@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    /* td { border: 1px solid black; } */
+    body { text-align: center; }
+    #life table { display: inline; }
+    #life td { 
+      width: 16px; 
+      height: 16px; 
+      border-radius: 8px;
+      -moz-border-radius: 8px !important; 
+    }
+    #life td.alive { background-color: red; }
+
+    h1 { 
+      position: relative; 
+      top: 150px; 
+      z-index: 10; 
+      font-size: 64pt;
+    }
+    p { 
+      position: relative;
+      top: 200px; 
+      z-index: 5; 
+    }
+  </style>
+</head>
+<body>
+  <div id="life"></div>
+  <script defer="defer">
+    function CellOfLife( initialState, domElement ) {
+      this.isAlive = (initialState==="alive");
+      this.isAliveNextTurn = this.isAlive;
+      this.domElement = domElement;
+    };
+
+    CellOfLife.prototype.updateDisplay = function() {
+      this.isAlive = this.isAliveNextTurn;
+      this.domElement.className = ( this.isAlive ) ? "alive" : "dead";
+    };
+
+    CellOfLife.prototype.updateStateWithLiveNeighbors = function( n ) {
+      var stateToggled = false;
+
+      if( ( this.isAlive && ( n < 2 || n > 3 ) ) ||
+          ( !this.isAlive && n == 3 ) ) {
+        stateToggled = true;
+        this.isAliveNextTurn = !this.isAlive;
+      }
+
+      return stateToggled;
+    };
+
+    function GameOfLife( rows, cols, initialLiveProb, lifeDiv ) {
+
+      var buildInitialField = function( aliveProb ) {
+        var classField = {};
+        var max = rows * cols;
+        for( var i = 0; i < max; ++i ) {
+          var state = (Math.random() < aliveProb) ? "alive" : "dead";
+          var cellId = "cell" + i;
+          var element = document.getElementById( cellId );
+          classField[i] = new CellOfLife( state, element );
+        }
+        return classField;
+      }
+
+      var buildInitialTable = function() {
+        var classCounter = 0;
+        var html = [ "<table>" ];
+        for( var r = 0; r < rows; ++r ) {
+          html.push( "<tr>" );
+          for( var c = 0; c < cols; ++c, ++classCounter ) {
+            cellId = "cell" + classCounter;
+            html.push( "<td id='" + cellId + "' class='dead'>&nbsp;</td>" );
+          }
+          html.push( "</tr>" );
+        }
+        html.push( "</table>" );
+        lifeDiv.innerHTML = html.join('');
+      }
+
+      buildInitialTable();
+
+      this._rows = rows;
+      this._cols = cols;
+      this._afterLastCell = rows * cols;
+      this._cellField = buildInitialField( initialLiveProb );
+      this._neighborOffsets = [ -cols - 1, -cols, -cols + 1,
+                                       -1,        +1,
+                                 cols - 1,  cols,  cols + 1 ];
+      this.updateTable();
+    };
+
+    GameOfLife.prototype.nextTurn = function() {
+      for( var i = 0; i < this._afterLastCell; ++i ) {
+        this.updateCellStatus( i );
+      }
+      this.updateTable();
+    };
+
+    GameOfLife.prototype.liveNeighborsOf = function( cellIndex ) {
+      var liveCount = 0;
+      var cellField = this._cellField;
+
+      for( var i = 0; i < 8; ++i ) {
+        var index = this._neighborOffsets[i] + cellIndex;
+        if( index < 0 ) {
+          index += this._afterLastCell;
+        } else if( index >= this._afterLastCell ) {
+          index -= this._afterLastCell;
+        }
+
+        if( cellField[index].isAlive ) {
+          ++liveCount;
+        }
+      }
+
+      return liveCount;
+    };
+
+    GameOfLife.prototype.updateCellStatus = function( cellIndex ) {
+      var somethingChanged = false;
+
+      for( var i = 0; i < this._afterLastCell; ++i ) {
+        var liveNeighbors = this.liveNeighborsOf( i );
+        somethingChanged = this._cellField[i].updateStateWithLiveNeighbors( liveNeighbors ) || somethingChanged;
+      }
+
+      this._equilibriumReached = !somethingChanged;
+    };
+
+    GameOfLife.prototype.updateTable = function() {
+      for( var i = 0; i < this._afterLastCell; ++i ) {
+        this._cellField[i].updateDisplay(); 
+      }
+    }
+
+    var lifeDiv = document.getElementById( "life" );
+    var rows = 25;
+    var cols = 25;
+    var prob = 0.3;
+
+    var game = new GameOfLife( rows, cols, prob, lifeDiv );
+    setInterval( function() { 
+                   game.nextTurn();
+                   if( game._equilibriumReached ) {
+                     // console.log( "Equilibrium reached. resetting" );
+                     game = new GameOfLife( rows, cols, prob, lifeDiv );
+                   }
+                 }, 5000 );
+  </script>
+</body>
+</html>
